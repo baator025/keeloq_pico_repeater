@@ -17,7 +17,7 @@ add_executable(pilot_pio
 # pull in common dependencies
 target_link_libraries(pilot_pio pico_stdlib hardware_pio)
 
-pico_generate_pio_header(pilot_pio ${CMAKE_CURRENT_LIST_DIR}/keeloq.pio)
+pico_generate_pio_header(pilot_pio ${CMAKE_CURRENT_LIST_DIR}/keeloq_tx.pio)
 
 target_sources(pilot_pio PRIVATE main.cpp TransmissionService.cpp)
 

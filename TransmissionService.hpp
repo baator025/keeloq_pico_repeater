@@ -5,7 +5,7 @@
 #include "hardware/pio.h"
 #include "TransmissionConfig.hpp"
 
-#include "keeloq.pio.h"
+#include "keeloq_tx.pio.h"
 
 class TransmissionService
 {
