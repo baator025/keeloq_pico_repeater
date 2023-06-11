@@ -1,0 +1,69 @@
+.program keeloq_tx
+.define frame_length 1
+.side_set 1 opt
+frame_transmission_start:
+    pull block   ;block SM here until first data chunk arrives to FIFO
+    set x, 10    ;header pulse counter 
+header_part_1:
+    set pins, 1 [7]
+    set pins, 0 [7]
+    jmp x-- header_part_1
+    set x, 10
+header_part_2:
+    nop [7]
+    jmp x-- header_part_2
+
+    set y, 0
+    set x, frame_length
+    jmp bitloop
+opt_pull:
+    pull block
+bitloop:
+    out y, 1                  ; shift one bit from OSR to Y
+    jmp !y send_zero          ; if Y is zero, jump to label send_zero
+send_one:
+    set y, 0 side 1 [7]
+    nop [7]
+    jmp !osre bitloop side 0 [5]
+send_zero:
+    set pins, 1 [7]
+    set pins, 0 [7]
+    jmp !osre bitloop [5]
+    jmp x-- opt_pull
+    jmp frame_transmission_start
+
+
+% c-sdk {
+#include "hardware/clocks.h"
+
+static inline void keeloq_tx_program_init(PIO pio, uint sm, uint offset, uint pin_tx, uint bitrate){
+
+    // Tell PIO to initially drive output-high on the selected pin, then map PIO
+    // onto that pin with the IO muxes.
+    pio_sm_set_pins_with_mask(pio, sm, 1u << pin_tx, 1u << pin_tx);
+    pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_tx, 1u << pin_tx);
+    pio_gpio_init(pio, pin_tx);
+    pio_sm_config c = keeloq_tx_program_get_default_config(offset);
+
+    // OUT shifts to right, no autopull
+    sm_config_set_out_shift(&c, true, false, 32);
+
+    // We are mapping both OUT and side-set to the same pin, because sometimes
+    // we need to assert user data onto the pin (with OUT) and sometimes
+    // assert constant values (start/stop bit)
+    sm_config_set_out_pins(&c, pin_tx, 1);
+    sm_config_set_set_pins(&c, pin_tx, 1);
+    sm_config_set_sideset_pins(&c, pin_tx);
+
+    // We only need TX, so get an 8-deep FIFO!
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+    // SM transmits 1 bit per 8 execution cycles.
+    float div = (float)clock_get_hz(clk_sys) / (8 * bitrate);
+    sm_config_set_clkdiv(&c, div);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+
+}
+%}
