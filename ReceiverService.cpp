@@ -5,6 +5,3 @@ ReceiverService::ReceiverService(/* args */)
 {
 }
 
-ReceiverService::~ReceiverService()
-{
-}
