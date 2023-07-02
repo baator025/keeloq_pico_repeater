@@ -13,6 +13,7 @@ add_executable(pilot_pio
         main.cpp
         TransmissionService.cpp
         ReceiverService.cpp
+        UARTDebug.cpp
         )
 
 # pull in common dependencies

@@ -3,42 +3,59 @@
 .define FIFO_BASIC_UNIT_SIZE 32
 .define BIT_COUNT FRAME_SIZE*FIFO_BASIC_UNIT_SIZE
 .side_set 1 opt
-    wait 1 pin 0
-    set x, 10
+
+counter_val_load:                         ;SM awaits here for loading bitcounter value
+    pull block
+    mov y osr
+rx_start:
+    ; nop [7] side 1
+    ; nop [7] side 0
+    wait 1 pin 0 side 0
+    set x, 10 [1] side 1
 header_bitloop:
-    in pins, 1
-    jmp x--, header_bitloop [5]
-    push                            ;push it to fifo for later evaluation
-    set x, 10
+    in pins, 1 [7] side 1
+    jmp pin, transmission_error
+    jmp x--, header_bitloop [7] side 0 
+    push                                    ;push it to fifo for later evaluation
 data_bitloop:
-    wait 1 pin 0
-    nop [7]                         ;wait for middle of bit
-    in pins, 1
+    wait 1 pin 0 side 1
+    nop [7]                                 ;wait for middle of bit
+    in pins, 1 side 0 [7]                   ;read the pin and wait for last part
+    jmp pin, transmission_error             ;check the last part of bit
     push iffull noblock
-    ;delay may be necessary here
-    jmp x-- data_bitloop
+    jmp y-- data_bitloop
+    jmp counter_val_load
+transmission_error:
+    nop [3] side 1
+    nop [3] side 0
+    ;let know somehow to CPU, that transmission did not go as expected
+    jmp counter_val_load
+
 
 % c-sdk {
 #include "hardware/clocks.h"
 
-static inline void manchester_tx_program_init(PIO pio, uint sm, uint offset, uint pin_rx, uint bitrate, uint side_set_pin){ //-DEBUG-
+static inline void keeloq_rx_program_init(PIO pio, uint sm, uint offset, uint pin_rx, uint bitrate, uint side_set_pin){ //-DEBUG-
 
     // pio_sm_set_pins_with_mask(pio, sm, 1u << pin_rx, 1u << pin_rx);
     // pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_rx, 1u << pin_rx);
     
-    pio_set_consecutive_pindirs(pio, sm, pin_rx, 1, false);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_rx, 1, false);
+
+    pio_sm_config c = keeloq_rx_program_get_default_config(offset);
+
+    // PIO pins configuration
+    pio_sm_set_pins_with_mask(pio, sm, (1<<side_set_pin), (1<<side_set_pin));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1 << side_set_pin), (1 << side_set_pin));         //-DEBUG-
+    sm_config_set_jmp_pin(&c, pin_rx);                                   // for JMP, may be useful for finding framing errors
+    sm_config_set_in_pins(&c, pin_rx);                                  // for WAIT, IN
+    sm_config_set_sideset_pins(&c, side_set_pin);                       //-DEBUG-
+    
+    // GPIO init functions
     pio_gpio_init(pio, pin_rx);
     gpio_pull_down(pin_rx);
-
-    pio_sm_config c = manchester_tx_program_get_default_config(offset);
-
-    sm_config_set_in_pins(&c, pin_rx);                                  // for WAIT, IN
-    //sm_config_set_jmp_pin(&c, pin);                                   // for JMP, may be useful for finding framing errors
-    sm_config_set_in_shift(&c, true, false, 32);
-
-    sm_config_set_sideset_pins(&c, side_set_pin);                       //-DEBUG-
-    gpio_set_dir(side_set_pin, true);                                   //-DEBUG-
-    pio_gpio_init(pio, pin_rx);                                         //-DEBUG-
+    gpio_set_dir(side_set_pin, true);                                         //-DEBUG-
+    pio_gpio_init(pio, side_set_pin);                                         //-DEBUG-
 
     // Shift to right, autopush disabled
     sm_config_set_in_shift(&c, true, false, 32);
