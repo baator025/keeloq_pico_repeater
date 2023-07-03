@@ -26,6 +26,7 @@ int main(){
         if(transmissionCounter == TRANSMISSION_TRESHOLD){
             transmissionService.sendFrame(data);
         } else if(transmissionCounter == RECEIVER_TRESHOLD){
+            uartService.sendData(receiverService.getFIFOLevel());
             receivedData = receiverService.readData();
             for(auto it : receivedData){
                 uartService.sendData(it);

@@ -22,6 +22,7 @@ public:
     ReceiverService(PIO pio, uint sm, uint pinRx, uint probingPeriod, uint sideSetPin);      //-DEBUG-
     void initializePIO();
     std::array<uint32_t, FRAME_SIZE + 1> readData();
+    uint getFIFOLevel();
 };
 
 #endif //RECEIVER_SERVICE_HPP

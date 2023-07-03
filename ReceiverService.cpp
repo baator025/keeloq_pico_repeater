@@ -20,9 +20,13 @@ void ReceiverService::loadBitCounterValue(){           //it has to be used after
 
 std::array<uint32_t, FRAME_SIZE + 1> ReceiverService::readData(){
     std::array<uint32_t, FRAME_SIZE + 1> rawData {};
-    for(auto it : rawData){
+    for(auto & it : rawData){
         it = pio_sm_get_blocking(pio, sm);
     }
     loadBitCounterValue();
     return(rawData);
+}
+
+uint ReceiverService::getFIFOLevel(){
+    return(pio_sm_get_rx_fifo_level(pio, sm));
 }
