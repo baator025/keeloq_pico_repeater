@@ -14,6 +14,6 @@ void UARTDebug::initialize(){
 void UARTDebug::sendData(int data){
     char buffer[34] {};
     itoa(data, buffer, 16);
-    buffer[32] = '\n';
     uart_puts(uart, buffer);
+    uart_putc(uart, '\n');
 }

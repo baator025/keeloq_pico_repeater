@@ -8,8 +8,6 @@ counter_val_load:                         ;SM awaits here for loading bitcounter
     pull block
     mov y osr
 rx_start:
-    ; nop [7] side 1
-    ; nop [7] side 0
     wait 1 pin 0 side 0
     set x, 10 [1] side 1
 header_bitloop:
@@ -58,7 +56,7 @@ static inline void keeloq_rx_program_init(PIO pio, uint sm, uint offset, uint pi
     pio_gpio_init(pio, side_set_pin);                                         //-DEBUG-
 
     // Shift to right, autopush disabled
-    sm_config_set_in_shift(&c, true, false, 32);
+    sm_config_set_in_shift(&c, false, false, 32);
 
     // SM transmits 1 bit per 8 execution cycles.
     float div = (float)clock_get_hz(clk_sys) / (8 * bitrate);
