@@ -18,7 +18,7 @@
 #define RX_PIN 3U
 #define RX_PIO pio1
 #define RX_SM 0U
-#define PROBING_PERIOD 2500U            //the same as above
+#define PROBING_PERIOD 2622U            //the same as above (original val 2500)
 #define SIDE_SET_PIN 4U                 //-DEBUG-
 
 

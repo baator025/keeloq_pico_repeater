@@ -16,26 +16,35 @@ int main(){
 
     static UARTDebug uartService(uart0, 115200, 1, 0);
     uartService.initialize();
-    uartService.sendData(2137);
 
     uint16_t transmissionCounter {0};
     uint32_t data[FRAME_SIZE] {0x045A0ED4, 0x35B95FFB};
-    std::array<uint32_t, FRAME_SIZE + 1> receivedData {};
+    KeeloqRawFrame receivedData {};
+    bool transmitFlag = false;
 
     while(true){
-        if(transmissionCounter == TRANSMISSION_TRESHOLD){
-            transmissionService.sendFrame(data);
-        } else if(transmissionCounter == RECEIVER_TRESHOLD){
-            uartService.sendData(receiverService.getFIFOLevel());
-            receivedData = receiverService.readData();
-            for(auto it : receivedData){
-                uartService.sendData(it);
+        ReceiverStatus receiverStatus = receiverService.checkInterrupt();
+        switch (receiverStatus){
+        case ReceiverStatus::DATA_READY:
+            if(receiverService.readData(receivedData)){
+                for(auto i : receivedData){
+                    uartService.sendData(i);
+                }
+                receiverService.clearInterrupt(ReceiverInterrupts::DATA_READY_IRQ);
+                //transmit data
+            } else {
+                receiverService.faultsHandling(ReceiverErrors::PARSING_ERROR);
             }
-        } else if(transmissionCounter == COUNTER_LIMIT){
-            transmissionCounter = 0;
+            break;
+
+        case ReceiverStatus::TRANSMISSION_ERROR:
+            receiverService.faultsHandling(ReceiverErrors::PIO_ERROR);
+
+        case ReceiverStatus::WAITING_FOR_DATA:
+            break;
+        default:
+            break;
         }
-        
-        transmissionCounter++;
         sleep_ms(1);
     }
     

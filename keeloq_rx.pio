@@ -4,17 +4,24 @@
 .define BIT_COUNT FRAME_SIZE*FIFO_BASIC_UNIT_SIZE
 .side_set 1 opt
 
+;'1' average time (based on one frame) 374 us
+;'0' average time (based on one frame) 387 us
+
 counter_val_load:                         ;SM awaits here for loading bitcounter value
     pull block
-    mov y osr
+    mov y osr                             ;Y scratch register serves as bitcounter value
 rx_start:
-    wait 1 pin 0 side 0
-    set x, 10 [1] side 1
+    set x, 11 side 1
+    wait 1 pin 0 [1] side 0
 header_bitloop:
-    in pins, 1 [7] side 1
+    in pins, 1 [6] side 1                   ;transmission of '1' is shorter, so delay value has to be shorter
     jmp pin, transmission_error
     jmp x--, header_bitloop [7] side 0 
     push                                    ;push it to fifo for later evaluation
+    set x, 7 side 0
+header_pulldown_bitloop:
+    jmp pin, transmission_error side 1
+    jmp x--, header_pulldown_bitloop [6] side 0 
 data_bitloop:
     wait 1 pin 0 side 1
     nop [7]                                 ;wait for middle of bit
@@ -22,11 +29,18 @@ data_bitloop:
     jmp pin, transmission_error             ;check the last part of bit
     push iffull noblock
     jmp y-- data_bitloop
+    jmp data_ready
+data_ready:
+    nop side 0
+    nop side 1
+    irq wait 0
     jmp counter_val_load
 transmission_error:
-    nop [3] side 1
-    nop [3] side 0
-    ;let know somehow to CPU, that transmission did not go as expected
+    nop side 0
+    nop side 1
+    nop side 0
+    nop side 1
+    irq wait 1
     jmp counter_val_load
 
 
@@ -58,7 +72,7 @@ static inline void keeloq_rx_program_init(PIO pio, uint sm, uint offset, uint pi
     // Shift to right, autopush disabled
     sm_config_set_in_shift(&c, false, false, 32);
 
-    // SM transmits 1 bit per 8 execution cycles.
+    // SM transmits 'TE' per 8 execution cycles.
     float div = (float)clock_get_hz(clk_sys) / (8 * bitrate);
     sm_config_set_clkdiv(&c, div);
 
