@@ -14,6 +14,7 @@ add_executable(pilot_pio
         TransmissionService.cpp
         ReceiverService.cpp
         UARTDebug.cpp
+        BasicPeripherals.cpp
         )
 
 # pull in common dependencies
@@ -22,7 +23,10 @@ target_link_libraries(pilot_pio pico_stdlib hardware_pio)
 pico_generate_pio_header(pilot_pio ${CMAKE_CURRENT_LIST_DIR}/keeloq_tx.pio)
 pico_generate_pio_header(pilot_pio ${CMAKE_CURRENT_LIST_DIR}/keeloq_rx.pio)
 
-target_sources(pilot_pio PRIVATE main.cpp TransmissionService.cpp ReceiverService.cpp)
+target_sources(pilot_pio PRIVATE main.cpp
+                                 TransmissionService.cpp
+                                 ReceiverService.cpp
+                                 BasicPeripherals.cpp)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(pilot_pio)

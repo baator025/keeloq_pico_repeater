@@ -116,3 +116,11 @@ bool ReceiverService::isFrameValid(const KeeloqRawFrame& frame){
 
     return(retVal);
 }
+
+void ReceiverService::lockReceiver(){
+    pio_sm_restart(pio, sm);
+}
+
+void ReceiverService::unlockReceiver(){
+    loadBitCounterValue();
+}

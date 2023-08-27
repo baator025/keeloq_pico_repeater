@@ -23,13 +23,17 @@ bitloop:
     jmp !y send_zero          ; if Y is zero, jump to label send_zero
 send_one:
     set y, 0 side 1 [7]
-    nop [7]
+    nop [6]
     jmp !osre bitloop side 0 [5]
+    jmp chunk_end
 send_zero:
     set pins, 1 [7]
     set pins, 0 [7]
-    jmp !osre bitloop [5]
+    jmp !osre bitloop [4]
+chunk_end:
     jmp x-- opt_pull
+    set pins, 1 [7]
+    set pins, 0 [7]
     jmp frame_transmission_start
 
 

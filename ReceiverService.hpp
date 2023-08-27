@@ -32,10 +32,20 @@ const std::array<ReceiverInterrupts, RX_IRQ_LENGTH> receiverInterruptsArray {
     ReceiverInterrupts::DATA_READY_IRQ,
     ReceiverInterrupts::TRANSMISSION_ERROR_IRQ };
 
-using KeeloqRawFrame = std::array<uint32_t, FRAME_SIZE + 1>;
-
 class ReceiverService
 {
+public:
+    ReceiverService(PIO pio, uint sm, uint pinRx, uint probingPeriod, uint sideSetPin);      //-DEBUG-
+    using KeeloqRawFrame = std::array<uint32_t, FRAME_SIZE + 1>;
+    
+    void initializePIO();
+    bool readData(KeeloqRawFrame& rawData);
+    void lockReceiver();
+    void unlockReceiver();
+    void clearInterrupt(uint interruptID);
+    ReceiverStatus checkInterrupt();
+    void faultsHandling(ReceiverErrors error);
+
 private:
     const PIO pio;
     const uint sm;
@@ -55,15 +65,6 @@ private:
     void loadBitCounterValue();
     bool isFrameValid(const KeeloqRawFrame& frame);
     uint getFIFOLevel();
-
-public:
-    ReceiverService(PIO pio, uint sm, uint pinRx, uint probingPeriod, uint sideSetPin);      //-DEBUG-
-    void initializePIO();
-    bool readData(KeeloqRawFrame& rawData);
-    
-    void clearInterrupt(uint interruptID);
-    ReceiverStatus checkInterrupt();
-    void faultsHandling(ReceiverErrors error);
     
 };
 
