@@ -37,7 +37,7 @@ class ReceiverService
 public:
     ReceiverService(PIO pio, uint sm, uint pinRx, uint probingPeriod, uint sideSetPin);      //-DEBUG-
     using KeeloqRawFrame = std::array<uint32_t, FRAME_SIZE + 1>;
-    
+
     void initializePIO();
     bool readData(KeeloqRawFrame& rawData);
     void lockReceiver();
@@ -65,7 +65,7 @@ private:
     void loadBitCounterValue();
     bool isFrameValid(const KeeloqRawFrame& frame);
     uint getFIFOLevel();
-    
+
 };
 
 #endif //RECEIVER_SERVICE_HPP

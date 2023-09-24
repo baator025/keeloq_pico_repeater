@@ -45,7 +45,12 @@ int main(){
 
     auto popData = [](){dataCounter--; return(dataLog[dataCounter+1]);};
 
+    static TransmissionService::DataFrame currentData;
+    static bool retransmissionOngoing {false};
+
     while(true){
+
+        //Receiver state machine
         ReceiverStatus receiverStatus = receiverService.checkInterrupt();
         switch (receiverStatus){
         case ReceiverStatus::DATA_READY:
@@ -53,10 +58,16 @@ int main(){
                 for(auto i : receivedData){
                     uartService.sendData(i);
                 }
-                receiverService.clearInterrupt(ReceiverInterrupts::DATA_READY_IRQ);
                 auto data = packData(receivedData);
-                storeData(data);
-                
+                if(!retransmissionOngoing){
+                    storeData(data);
+                } else {
+                    if(data == currentData){
+                        retransmissionOngoing = false;
+                        ledNotifier.notifyBlocking(3);
+                    }
+                }
+
                 ledNotifier.notifyBlocking(1);
             } else {
                 receiverService.faultsHandling(ReceiverErrors::PARSING_ERROR);
@@ -65,6 +76,7 @@ int main(){
 
         case ReceiverStatus::TRANSMISSION_ERROR:
             receiverService.faultsHandling(ReceiverErrors::PIO_ERROR);
+            break;
 
         case ReceiverStatus::WAITING_FOR_DATA:
             break;
@@ -72,16 +84,19 @@ int main(){
             break;
         }
 
+        //Transmitter state machine
         button.buttonStateMachine();
         if(button.wasPressed()){
-            receiverService.lockReceiver();
-            transmissionService.sendFrame(popData());
-            sleep_ms(100);
-            receiverService.unlockReceiver();
+            if(!retransmissionOngoing){
+                currentData = popData();
+                retransmissionOngoing = true;
+            }
+
+            transmissionService.sendFrame(currentData);
         };
 
         sleep_ms(1);
-    }                            
+    }
 }
 
 // int main(){

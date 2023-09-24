@@ -29,6 +29,9 @@ bool ReceiverService::readData(KeeloqRawFrame& rawData){
 
     if(isFrameValid(rawData)){
         retVal = true;
+        pio_sm_restart(pio, sm);
+        pio_sm_clear_fifos(pio, sm);    //TX FIFO will also be cleared
+        clearInterrupt(ReceiverInterrupts::DATA_READY_IRQ);
         loadBitCounterValue();
     } else {
         retVal = false;
@@ -53,13 +56,18 @@ ReceiverStatus ReceiverService::checkInterrupt(){
                 }
             }
     };
-    
+
     checkInterrupts();
 
     ReceiverStatus retVal {};
+    uint8_t fifoLen = static_cast<uint8_t>(pio_sm_get_rx_fifo_level(pio, sm));
     switch(interruptID){
         case ReceiverInterrupts::DATA_READY_IRQ:
-            retVal = ReceiverStatus::DATA_READY;
+            if(fifoLen == FRAME_SIZE+1){
+                retVal = ReceiverStatus::DATA_READY;
+            } else {
+                retVal = ReceiverStatus::TRANSMISSION_ERROR;
+            }
             break;
         case ReceiverInterrupts::TRANSMISSION_ERROR_IRQ:
             retVal = ReceiverStatus::TRANSMISSION_ERROR;
@@ -81,11 +89,12 @@ void ReceiverService::clearInterrupt(uint interruptID){
 
 void ReceiverService::faultsHandling(ReceiverErrors error){
     pio_sm_clear_fifos(pio, sm);    //TX FIFO will also be cleared
+    pio_sm_restart(pio, sm);
 
     switch(error)
     {
     case ReceiverErrors::PIO_ERROR:
-        clearInterrupt(TRANSMISSION_ERROR_IRQ);    
+        clearInterrupt(TRANSMISSION_ERROR_IRQ);
         break;
     case ReceiverErrors::PARSING_ERROR:
         clearInterrupt(PARSING_ERROR);
@@ -93,7 +102,6 @@ void ReceiverService::faultsHandling(ReceiverErrors error){
     default:
         break;
     }
-    
     loadBitCounterValue();
 }
 
@@ -117,9 +125,11 @@ bool ReceiverService::isFrameValid(const KeeloqRawFrame& frame){
     return(retVal);
 }
 
+
 void ReceiverService::lockReceiver(){
     pio_sm_restart(pio, sm);
 }
+
 
 void ReceiverService::unlockReceiver(){
     loadBitCounterValue();
