@@ -3,12 +3,12 @@
 .side_set 1 opt
 frame_transmission_start:
     pull block   ;block SM here until first data chunk arrives to FIFO
-    set x, 10    ;header pulse counter 
+    set x, 11    ;header pulse counter 
 header_part_1:
     set pins, 1 [7]
-    set pins, 0 [7]
+    set pins, 0 [6]
     jmp x-- header_part_1
-    set x, 10
+    set x, 6
 header_part_2:
     nop [7]
     jmp x-- header_part_2

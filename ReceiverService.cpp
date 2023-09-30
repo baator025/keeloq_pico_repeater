@@ -30,8 +30,9 @@ bool ReceiverService::readData(KeeloqRawFrame& rawData){
     if(isFrameValid(rawData)){
         retVal = true;
         pio_sm_restart(pio, sm);
-        pio_sm_clear_fifos(pio, sm);    //TX FIFO will also be cleared
+        pio_sm_clear_fifos(pio, sm);
         clearInterrupt(ReceiverInterrupts::DATA_READY_IRQ);
+        bitloopIRQOccurenceCounter = 0;
         loadBitCounterValue();
     } else {
         retVal = false;
@@ -47,36 +48,43 @@ uint ReceiverService::getFIFOLevel(){
 
 
 ReceiverStatus ReceiverService::checkInterrupt(){
-    ReceiverInterrupts interruptID {ReceiverInterrupts::NONE_REPORTED};
-    auto checkInterrupts = [&interruptID, this](){
-            for(auto i : receiverInterruptsArray){
-                if(pio_interrupt_get(pio, i)){
-                    interruptID = i;
-                    break;
-                }
-            }
-    };
-
-    checkInterrupts();
+    ReceiverInterrupts interruptID {};
+    bool wasAnyInterruptReported {false};
+    //need to get all of interrupts statuses, not only one.
+    for(auto i : receiverInterruptsArray){
+        if(pio_interrupt_get(pio, i)){
+            interruptID = i;
+            wasAnyInterruptReported = true;
+            break;
+        }
+    }
 
     ReceiverStatus retVal {};
     uint8_t fifoLen = static_cast<uint8_t>(pio_sm_get_rx_fifo_level(pio, sm));
-    switch(interruptID){
-        case ReceiverInterrupts::DATA_READY_IRQ:
-            if(fifoLen == FRAME_SIZE+1){
-                retVal = ReceiverStatus::DATA_READY;
-            } else {
+    if(wasAnyInterruptReported){
+        switch(interruptID){
+            case ReceiverInterrupts::DATA_READY_IRQ:
+                if(fifoLen == FRAME_SIZE+1){
+                    retVal = ReceiverStatus::DATA_READY;
+                } else {
+                    retVal = ReceiverStatus::TRANSMISSION_ERROR;
+                }
+                break;
+            case ReceiverInterrupts::TRANSMISSION_ERROR_IRQ:
                 retVal = ReceiverStatus::TRANSMISSION_ERROR;
-            }
-            break;
-        case ReceiverInterrupts::TRANSMISSION_ERROR_IRQ:
-            retVal = ReceiverStatus::TRANSMISSION_ERROR;
-            break;
-        case ReceiverInterrupts::NONE_REPORTED:
-            retVal = ReceiverStatus::WAITING_FOR_DATA;
-            break;
-
-    };
+                break;
+            case ReceiverInterrupts::SM_BITLOOP_STARTED:
+                if(bitloopIRQOccurenceCounter >= BITLOOP_IRQ_OCCURENCE_LIMIT){
+                    retVal = ReceiverStatus::TOO_LONG_BITLOOP;
+            
+                } else {
+                    bitloopIRQOccurenceCounter++;
+                }
+                break;
+        }
+    } else {
+        retVal = ReceiverStatus::WAITING_FOR_DATA;
+    }
 
     return(retVal);
 }
@@ -87,21 +95,15 @@ void ReceiverService::clearInterrupt(uint interruptID){
 }
 
 
-void ReceiverService::faultsHandling(ReceiverErrors error){
+void ReceiverService::recoveryActions(){
     pio_sm_clear_fifos(pio, sm);    //TX FIFO will also be cleared
-    pio_sm_restart(pio, sm);
-
-    switch(error)
-    {
-    case ReceiverErrors::PIO_ERROR:
-        clearInterrupt(TRANSMISSION_ERROR_IRQ);
-        break;
-    case ReceiverErrors::PARSING_ERROR:
-        clearInterrupt(PARSING_ERROR);
-        break;
-    default:
-        break;
+    for(auto interrupt : receiverInterruptsArray){
+        clearInterrupt(interrupt);
     }
+    pio_sm_restart(pio, sm);
+    keeloq_rx_program_init(pio, sm, offset, pinRx, probingPeriod, sideSetPin);                                  //-DEBUG-
+    bitloopIRQOccurenceCounter = 0;
+    sleep_ms(3);
     loadBitCounterValue();
 }
 

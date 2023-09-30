@@ -10,9 +10,9 @@
 counter_val_load:                         ;SM awaits here for loading bitcounter value
     nop side 0
     pull block
-    mov y osr                             ;Y scratch register serves as bitcounter value
+    mov y osr side 1                      ;Y scratch register serves as bitcounter value
 rx_start:
-    set x, 11 side 1
+    set x, 11 side 0
     wait 1 pin 0 [1] side 0
 header_bitloop:
     in pins, 1 [6] side 1                   ;transmission of '1' is shorter, so delay value has to be shorter
@@ -23,6 +23,7 @@ header_bitloop:
 header_pulldown_bitloop:
     jmp pin, transmission_error side 1
     jmp x--, header_pulldown_bitloop [6] side 0
+    irq nowait 2                            ;bitloop started flag
 data_bitloop:
     wait 1 pin 0 side 1
     nop [7]                                 ;wait for middle of bit
@@ -34,13 +35,13 @@ data_bitloop:
 data_ready:
     nop side 0
     nop side 1
-    irq wait 0
+    irq wait 0                              ;data ready flag
     jmp counter_val_load
 transmission_error:
     nop side 0
     nop side 1
     nop side 0
-    irq wait 1
+    irq wait 1                              ;transmission error flag
     jmp counter_val_load
 
 
@@ -51,7 +52,7 @@ static inline void keeloq_rx_program_init(PIO pio, uint sm, uint offset, uint pi
 
     // pio_sm_set_pins_with_mask(pio, sm, 1u << pin_rx, 1u << pin_rx);
     // pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_rx, 1u << pin_rx);
-    
+
     pio_sm_set_consecutive_pindirs(pio, sm, pin_rx, 1, false);
 
     pio_sm_config c = keeloq_rx_program_get_default_config(offset);
@@ -62,7 +63,7 @@ static inline void keeloq_rx_program_init(PIO pio, uint sm, uint offset, uint pi
     sm_config_set_jmp_pin(&c, pin_rx);                                   // for JMP, may be useful for finding framing errors
     sm_config_set_in_pins(&c, pin_rx);                                  // for WAIT, IN
     sm_config_set_sideset_pins(&c, side_set_pin);                       //-DEBUG-
-    
+
     // GPIO init functions
     pio_gpio_init(pio, pin_rx);
     gpio_pull_down(pin_rx);

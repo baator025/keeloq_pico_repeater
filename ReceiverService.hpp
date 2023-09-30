@@ -5,6 +5,7 @@
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "TransmissionConfig.hpp"
+#include "BasicPeripherals.hpp"
 
 #include "keeloq_rx.pio.h"
 
@@ -13,24 +14,21 @@ using fixedPayload = uint32_t;
 enum ReceiverStatus{
     WAITING_FOR_DATA            = 0,
     DATA_READY                  = 1,
-    TRANSMISSION_ERROR          = 2
-};
-
-enum ReceiverErrors{
-    PIO_ERROR                   = 0,
-    PARSING_ERROR               = 1
+    TRANSMISSION_ERROR          = 2,
+    TOO_LONG_BITLOOP            = 3
 };
 
 enum ReceiverInterrupts{
     DATA_READY_IRQ              = 0,
     TRANSMISSION_ERROR_IRQ      = 1,
-    NONE_REPORTED               = 2,
+    SM_BITLOOP_STARTED          = 2,
     RX_IRQ_LENGTH               = 3
 };
 
-const std::array<ReceiverInterrupts, RX_IRQ_LENGTH> receiverInterruptsArray {
+const std::array<ReceiverInterrupts, (ReceiverInterrupts::RX_IRQ_LENGTH)> receiverInterruptsArray {
     ReceiverInterrupts::DATA_READY_IRQ,
-    ReceiverInterrupts::TRANSMISSION_ERROR_IRQ };
+    ReceiverInterrupts::TRANSMISSION_ERROR_IRQ,
+    ReceiverInterrupts::SM_BITLOOP_STARTED};
 
 class ReceiverService
 {
@@ -44,7 +42,7 @@ public:
     void unlockReceiver();
     void clearInterrupt(uint interruptID);
     ReceiverStatus checkInterrupt();
-    void faultsHandling(ReceiverErrors error);
+    void recoveryActions();
 
 private:
     const PIO pio;
@@ -52,12 +50,14 @@ private:
     const uint pinRx;
     const uint probingPeriod;
     uint offset;
+    uint8_t bitloopIRQOccurenceCounter {};
     const uint sideSetPin;               //-DEBUG-
 
     static constexpr uint8_t NUMBER_OF_ALLOWED_DEVICES {1};
     static constexpr uint8_t PREAMBLE_POS {0};
     static constexpr uint8_t ENCRYPTED_PART_POS {1};
     static constexpr uint8_t FIXED_PART_POS {2};
+    static constexpr uint8_t BITLOOP_IRQ_OCCURENCE_LIMIT {100};
     static constexpr uint32_t PREAMBLE_BITMASK {0x00000FFF};
 
     const std::array<fixedPayload, NUMBER_OF_ALLOWED_DEVICES> allowedFixedParts {0x35B95FFB};
@@ -65,6 +65,7 @@ private:
     void loadBitCounterValue();
     bool isFrameValid(const KeeloqRawFrame& frame);
     uint getFIFOLevel();
+
 
 };
 

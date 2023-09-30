@@ -43,7 +43,7 @@ int main(){
                             dataLog[dataCounter] = data;
                             dataCounter++;};
 
-    auto popData = [](){dataCounter--; return(dataLog[dataCounter+1]);};
+    auto popData = [](){dataCounter--; return(dataLog[dataCounter]);};
 
     static TransmissionService::DataFrame currentData;
     static bool retransmissionOngoing {false};
@@ -70,12 +70,15 @@ int main(){
 
                 ledNotifier.notifyBlocking(1);
             } else {
-                receiverService.faultsHandling(ReceiverErrors::PARSING_ERROR);
+                receiverService.recoveryActions();
             }
             break;
 
         case ReceiverStatus::TRANSMISSION_ERROR:
-            receiverService.faultsHandling(ReceiverErrors::PIO_ERROR);
+            receiverService.recoveryActions();
+            break;
+        case ReceiverStatus::TOO_LONG_BITLOOP:
+            receiverService.recoveryActions();
             break;
 
         case ReceiverStatus::WAITING_FOR_DATA:
