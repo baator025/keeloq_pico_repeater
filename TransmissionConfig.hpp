@@ -21,6 +21,10 @@
 #define PROBING_PERIOD 2622U            //the same as above (original val 2500)
 #define SIDE_SET_PIN 4U                 //-DEBUG-
 
+#define DSPL_SDA_PIN 14U
+#define DSPL_SCL_PIN 15U
+#define DSPL_BITRATE 100000
+
 #define BUTTON_PIN 16U
 
 

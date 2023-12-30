@@ -3,7 +3,7 @@
 .side_set 1 opt
 frame_transmission_start:
     pull block   ;block SM here until first data chunk arrives to FIFO
-    set x, 11    ;header pulse counter 
+    set x, 11    ;header pulse counter
 header_part_1:
     set pins, 1 [7]
     set pins, 0 [6]
@@ -12,6 +12,7 @@ header_part_1:
 header_part_2:
     nop [7]
     jmp x-- header_part_2
+    nop[2]
 
     set y, 0
     set x, frame_length
@@ -32,6 +33,9 @@ send_zero:
     jmp !osre bitloop [4]
 chunk_end:
     jmp x-- opt_pull
+    set pins, 1 [7]
+    nop [7]
+    set pins, 0 [7]
     set pins, 1 [7]
     set pins, 0 [7]
     jmp frame_transmission_start
